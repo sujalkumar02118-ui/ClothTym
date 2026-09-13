@@ -101,6 +101,13 @@ export default function ProductPage() {
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
 
+  /* ========================================================
+     WISHLIST
+  ======================================================== */
+
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
   useEffect(() => {
     async function loadProduct() {
       try {
@@ -162,6 +169,109 @@ export default function ProductPage() {
     loadProduct();
   }, [id]);
 
+  /* ========================================================
+     LOAD WISHLIST STATUS
+  ======================================================== */
+
+  useEffect(() => {
+    async function loadWishlistStatus() {
+      try {
+        const response = await fetch("/api/wishlist", {
+          cache: "no-store",
+        });
+
+        if (response.status === 401) {
+          setIsWishlisted(false);
+          return;
+        }
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) return;
+
+        const saved = data.some(
+          (item: { productId?: string }) =>
+            item.productId === id
+        );
+
+        setIsWishlisted(saved);
+      } catch (error) {
+        console.error(
+          "WISHLIST STATUS ERROR:",
+          error
+        );
+      }
+    }
+
+    loadWishlistStatus();
+  }, [id]);
+
+  /* ========================================================
+     TOGGLE WISHLIST
+  ======================================================== */
+
+  const toggleWishlist = async () => {
+    if (wishlistLoading) return;
+
+    try {
+      setWishlistLoading(true);
+
+      const response = await fetch("/api/wishlist", {
+        method: isWishlisted ? "DELETE" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: id,
+        }),
+      });
+
+      let data: {
+        success?: boolean;
+        message?: string;
+        error?: string;
+      } = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (response.status === 401) {
+        router.push(
+          `/login?callbackUrl=/product/${id}`
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            "Wishlist could not be updated."
+        );
+      }
+
+      setIsWishlisted(!isWishlisted);
+    } catch (error) {
+      console.error(
+        "WISHLIST TOGGLE ERROR:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Wishlist could not be updated."
+      );
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
   const productImages = useMemo(() => {
     if (!product) return [];
 
@@ -211,11 +321,9 @@ export default function ProductPage() {
     return true;
   };
 
-  /*
-   * ========================================================
-   * ADD TO CART — DATABASE CART API
-   * ========================================================
-   */
+  /* ========================================================
+     ADD TO CART — DATABASE CART API
+  ======================================================== */
 
   const addToCart = async () => {
     if (!validateSelection() || !product) return;
@@ -278,15 +386,9 @@ export default function ProductPage() {
     }
   };
 
-  /*
-   * ========================================================
-   * BUY NOW
-   *
-   * Buy Now abhi existing localStorage flow ko preserve
-   * karega. Cart API integration ko Add to Cart ke through
-   * database mein rakha gaya hai.
-   * ========================================================
-   */
+  /* ========================================================
+     BUY NOW
+  ======================================================== */
 
   const buyNow = () => {
     if (!validateSelection() || !product) return;
@@ -368,6 +470,7 @@ export default function ProductPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
 
           <button
+            type="button"
             onClick={() => router.back()}
             className="flex items-center gap-2 font-black text-[#111827]"
           >
@@ -410,7 +513,7 @@ export default function ProductPage() {
 
           <div>
 
-            <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white">
+            <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white">
 
               {selectedImage ? (
                 <img
@@ -423,6 +526,26 @@ export default function ProductPage() {
                   👕
                 </div>
               )}
+
+              {/* WISHLIST HEART */}
+
+              <button
+                type="button"
+                onClick={toggleWishlist}
+                disabled={wishlistLoading}
+                aria-label={
+                  isWishlisted
+                    ? "Remove from wishlist"
+                    : "Add to wishlist"
+                }
+                className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-2xl shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {wishlistLoading
+                  ? "..."
+                  : isWishlisted
+                    ? "♥"
+                    : "♡"}
+              </button>
 
             </div>
 
@@ -463,9 +586,37 @@ export default function ProductPage() {
               </p>
             )}
 
-            <h1 className="mt-2 text-3xl font-black text-[#07152f] sm:text-4xl">
-              {product.name}
-            </h1>
+            <div className="mt-2 flex items-start justify-between gap-4">
+
+              <h1 className="text-3xl font-black text-[#07152f] sm:text-4xl">
+                {product.name}
+              </h1>
+
+              {/* DESKTOP WISHLIST */}
+
+              <button
+                type="button"
+                onClick={toggleWishlist}
+                disabled={wishlistLoading}
+                aria-label={
+                  isWishlisted
+                    ? "Remove from wishlist"
+                    : "Add to wishlist"
+                }
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 bg-white text-2xl transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isWishlisted
+                    ? "border-red-200 text-red-500"
+                    : "border-gray-200 text-gray-500"
+                }`}
+              >
+                {wishlistLoading
+                  ? "..."
+                  : isWishlisted
+                    ? "♥"
+                    : "♡"}
+              </button>
+
+            </div>
 
             <div className="mt-3 flex items-center gap-2">
 
@@ -584,7 +735,9 @@ export default function ProductPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setQuantity((value) => Math.max(1, value - 1))
+                    setQuantity((value) =>
+                      Math.max(1, value - 1)
+                    )
                   }
                   className="h-12 w-12 text-xl font-black"
                 >
@@ -600,7 +753,9 @@ export default function ProductPage() {
                   onClick={() =>
                     setQuantity((value) =>
                       Math.min(
-                        product.stock > 0 ? product.stock : 1,
+                        product.stock > 0
+                          ? product.stock
+                          : 1,
                         value + 1
                       )
                     )
@@ -749,22 +904,30 @@ export default function ProductPage() {
 
             <div className="rounded-2xl bg-gray-50 p-4">
               <p className="text-2xl">✨</p>
-              <p className="mt-2 font-black">Quality Product</p>
+              <p className="mt-2 font-black">
+                Quality Product
+              </p>
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4">
               <p className="text-2xl">👕</p>
-              <p className="mt-2 font-black">Fashionable Design</p>
+              <p className="mt-2 font-black">
+                Fashionable Design
+              </p>
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4">
               <p className="text-2xl">📦</p>
-              <p className="mt-2 font-black">Secure Packaging</p>
+              <p className="mt-2 font-black">
+                Secure Packaging
+              </p>
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4">
               <p className="text-2xl">🚚</p>
-              <p className="mt-2 font-black">Fast Delivery</p>
+              <p className="mt-2 font-black">
+                Fast Delivery
+              </p>
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4">
