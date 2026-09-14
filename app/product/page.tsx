@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -30,7 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   Accessories: "Accessories",
 };
 
-export default function ProductPage() {
+function ProductPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -636,7 +636,7 @@ export default function ProductPage() {
 
         {/* ===================================================
             PRODUCTS
-        =================================================== */}
+        ===================================================== */}
 
         {!loading &&
           !error &&
@@ -812,5 +812,21 @@ export default function ProductPage() {
 
       </div>
     </main>
+  );
+}
+
+export default function ProductPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center">
+          <p className="text-sm text-gray-500">
+            Loading products...
+          </p>
+        </main>
+      }
+    >
+      <ProductPageContent />
+    </Suspense>
   );
 }
