@@ -224,11 +224,7 @@ function getSuggestionIcon(type: Suggestion["type"]) {
   }
 }
 
-function SearchIcon({
-  size = 18,
-}: {
-  size?: number;
-}) {
+function SearchIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -245,11 +241,7 @@ function SearchIcon({
   );
 }
 
-function UserIcon({
-  size = 20,
-}: {
-  size?: number;
-}) {
+function UserIcon({ size = 20 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -266,11 +258,7 @@ function UserIcon({
   );
 }
 
-function WishlistIcon({
-  size = 21,
-}: {
-  size?: number;
-}) {
+function WishlistIcon({ size = 21 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -286,11 +274,7 @@ function WishlistIcon({
   );
 }
 
-function CartIcon({
-  size = 18,
-}: {
-  size?: number;
-}) {
+function CartIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -519,10 +503,7 @@ export default function Navbar() {
 
   return (
     <div className="w-full max-w-[100vw] overflow-x-hidden">
-
-      {/* ========================================================= */}
-      {/* TOP UTILITY BAR                                           */}
-      {/* ========================================================= */}
+      {/* TOP UTILITY BAR */}
 
       <div className="w-full bg-[#07152f] text-white">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 h-8 sm:h-9 flex items-center justify-between gap-3">
@@ -538,33 +519,25 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* MAIN HEADER                                               */}
-      {/* ========================================================= */}
+      {/* MAIN HEADER */}
 
       <header className="w-full bg-white border-b border-gray-200">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6">
 
-          {/* ===================================================== */}
-          {/* TOP ROW                                                */}
-          {/* ===================================================== */}
+          {/* TOP ROW */}
 
-          <div className="min-w-0 min-h-[62px] sm:min-h-[76px] grid grid-cols-[minmax(0,1fr)_auto] md:flex md:items-center gap-2 sm:gap-4">
+          <div className="min-w-0 min-h-[62px] sm:min-h-[76px] flex items-center gap-2 sm:gap-4">
 
-            {/* ================================================= */}
-            {/* LOGO                                               */}
-            {/* ================================================= */}
+            {/* LOGO */}
 
             <Link
               href="/"
-              className="self-center justify-self-start shrink-0 whitespace-nowrap text-[22px] sm:text-[28px] lg:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
+              className="shrink-0 whitespace-nowrap text-[22px] xs:text-[23px] sm:text-[28px] lg:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
             >
               ClothTym
             </Link>
 
-            {/* ================================================= */}
-            {/* DESKTOP SEARCH                                     */}
-            {/* ================================================= */}
+            {/* DESKTOP SEARCH */}
 
             <div
               ref={desktopSearchRef}
@@ -701,9 +674,7 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* ================================================= */}
-            {/* DESKTOP ACTIONS                                    */}
-            {/* ================================================= */}
+            {/* DESKTOP ACTIONS */}
 
             <div className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
 
@@ -767,20 +738,39 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* ================================================= */}
-            {/* MOBILE ACTIONS                                    */}
-            {/* ================================================= */}
+            {/* MOBILE ACTIONS */}
 
-            <div className="md:hidden justify-self-end flex items-center gap-1 shrink-0">
+            <div
+              className="
+                !flex md:!hidden
+                ml-auto
+                min-w-0
+                items-center
+                justify-end
+                gap-0.5
+                shrink-0
+              "
+            >
 
               {/* MOBILE WISHLIST */}
 
               <Link
                 href="/wishlist"
                 aria-label="Wishlist"
-                className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[#07152f] hover:bg-gray-100 active:bg-gray-100"
+                className="
+                  !flex
+                  w-10
+                  h-10
+                  min-w-10
+                  shrink-0
+                  rounded-full
+                  items-center
+                  justify-center
+                  text-[#07152f]
+                  active:bg-gray-100
+                "
               >
-                <WishlistIcon size={21} />
+                <WishlistIcon size={20} />
               </Link>
 
               {/* MOBILE LOGIN */}
@@ -789,7 +779,18 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   aria-label="Login"
-                  className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[#07152f] hover:bg-gray-100 active:bg-gray-100"
+                  className="
+                    !flex
+                    w-10
+                    h-10
+                    min-w-10
+                    shrink-0
+                    rounded-full
+                    items-center
+                    justify-center
+                    text-[#07152f]
+                    active:bg-gray-100
+                  "
                 >
                   <UserIcon size={20} />
                 </Link>
@@ -801,7 +802,18 @@ export default function Navbar() {
                 <Link
                   href="/profile"
                   aria-label="Profile"
-                  className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-[#07152f] text-white"
+                  className="
+                    !flex
+                    w-10
+                    h-10
+                    min-w-10
+                    shrink-0
+                    rounded-full
+                    bg-[#07152f]
+                    text-white
+                    items-center
+                    justify-center
+                  "
                 >
                   <UserIcon size={18} />
                 </Link>
@@ -812,7 +824,22 @@ export default function Navbar() {
               <Link
                 href="/cart"
                 aria-label="Cart"
-                className="flex h-10 min-w-[58px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#07152f] px-2.5 text-[11px] font-semibold text-white"
+                className="
+                  !flex
+                  h-10
+                  min-w-[58px]
+                  shrink-0
+                  px-2.5
+                  rounded-full
+                  bg-[#07152f]
+                  text-white
+                  items-center
+                  justify-center
+                  gap-1.5
+                  text-[11px]
+                  font-semibold
+                  active:bg-black
+                "
               >
                 <CartIcon size={17} />
                 <span>Cart</span>
@@ -820,9 +847,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* ===================================================== */}
-          {/* MOBILE SEARCH                                         */}
-          {/* ===================================================== */}
+          {/* MOBILE SEARCH */}
 
           <div
             ref={mobileSearchRef}
@@ -956,9 +981,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* ===================================================== */}
-          {/* DESKTOP CATEGORY NAVIGATION                           */}
-          {/* ===================================================== */}
+          {/* DESKTOP CATEGORY NAVIGATION */}
 
           <div className="hidden md:flex items-center justify-center gap-7 lg:gap-9 border-t border-gray-100 h-[46px]">
             <Link
@@ -999,13 +1022,10 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* ========================================================= */}
-      {/* MOBILE CATEGORY NAVIGATION                               */}
-      {/* ========================================================= */}
+      {/* MOBILE CATEGORY NAVIGATION */}
 
       <div className="md:hidden w-full max-w-[100vw] bg-white border-b border-gray-200 overflow-x-auto overscroll-x-contain">
         <div className="w-max min-w-full px-4 flex items-center gap-6 h-[43px] whitespace-nowrap">
-
           <Link
             href="/product?category=Men"
             className="shrink-0 text-xs font-semibold text-gray-700"
@@ -1040,7 +1060,6 @@ export default function Navbar() {
           >
             Accessories
           </Link>
-
         </div>
       </div>
     </div>
