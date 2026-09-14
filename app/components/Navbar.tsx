@@ -519,6 +519,7 @@ export default function Navbar() {
 
   return (
     <div className="w-full max-w-[100vw] overflow-x-hidden">
+
       {/* ========================================================= */}
       {/* TOP UTILITY BAR                                           */}
       {/* ========================================================= */}
@@ -538,7 +539,7 @@ export default function Navbar() {
       </div>
 
       {/* ========================================================= */}
-      {/* MAIN HEADER                                                */}
+      {/* MAIN HEADER                                               */}
       {/* ========================================================= */}
 
       <header className="w-full bg-white border-b border-gray-200">
@@ -548,18 +549,22 @@ export default function Navbar() {
           {/* TOP ROW                                                */}
           {/* ===================================================== */}
 
-          <div className="min-w-0 min-h-[62px] sm:min-h-[76px] flex items-center gap-2 sm:gap-4">
+          <div className="min-w-0 min-h-[62px] sm:min-h-[76px] grid grid-cols-[minmax(0,1fr)_auto] md:flex md:items-center gap-2 sm:gap-4">
 
-            {/* LOGO */}
+            {/* ================================================= */}
+            {/* LOGO                                               */}
+            {/* ================================================= */}
 
             <Link
               href="/"
-              className="shrink-0 whitespace-nowrap text-[22px] xs:text-[23px] sm:text-[28px] lg:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
+              className="self-center justify-self-start shrink-0 whitespace-nowrap text-[22px] sm:text-[28px] lg:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
             >
               ClothTym
             </Link>
 
-            {/* DESKTOP SEARCH */}
+            {/* ================================================= */}
+            {/* DESKTOP SEARCH                                     */}
+            {/* ================================================= */}
 
             <div
               ref={desktopSearchRef}
@@ -766,16 +771,16 @@ export default function Navbar() {
             {/* MOBILE ACTIONS                                    */}
             {/* ================================================= */}
 
-            <div className="md:hidden ml-auto min-w-0 flex items-center justify-end gap-0.5 shrink-0">
+            <div className="md:hidden justify-self-end flex items-center gap-1 shrink-0">
 
               {/* MOBILE WISHLIST */}
 
               <Link
                 href="/wishlist"
                 aria-label="Wishlist"
-                className="w-10 h-10 min-w-10 shrink-0 rounded-full flex items-center justify-center text-[#07152f] active:bg-gray-100"
+                className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[#07152f] hover:bg-gray-100 active:bg-gray-100"
               >
-                <WishlistIcon size={20} />
+                <WishlistIcon size={21} />
               </Link>
 
               {/* MOBILE LOGIN */}
@@ -784,7 +789,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   aria-label="Login"
-                  className="w-10 h-10 min-w-10 shrink-0 rounded-full flex items-center justify-center text-[#07152f] active:bg-gray-100"
+                  className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[#07152f] hover:bg-gray-100 active:bg-gray-100"
                 >
                   <UserIcon size={20} />
                 </Link>
@@ -796,7 +801,7 @@ export default function Navbar() {
                 <Link
                   href="/profile"
                   aria-label="Profile"
-                  className="w-10 h-10 min-w-10 shrink-0 rounded-full bg-[#07152f] text-white flex items-center justify-center"
+                  className="flex w-10 h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-[#07152f] text-white"
                 >
                   <UserIcon size={18} />
                 </Link>
@@ -807,7 +812,7 @@ export default function Navbar() {
               <Link
                 href="/cart"
                 aria-label="Cart"
-                className="h-10 min-w-[58px] shrink-0 px-2.5 rounded-full bg-[#07152f] text-white flex items-center justify-center gap-1.5 text-[11px] font-semibold active:bg-black"
+                className="flex h-10 min-w-[58px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#07152f] px-2.5 text-[11px] font-semibold text-white"
               >
                 <CartIcon size={17} />
                 <span>Cart</span>
@@ -1000,6 +1005,7 @@ export default function Navbar() {
 
       <div className="md:hidden w-full max-w-[100vw] bg-white border-b border-gray-200 overflow-x-auto overscroll-x-contain">
         <div className="w-max min-w-full px-4 flex items-center gap-6 h-[43px] whitespace-nowrap">
+
           <Link
             href="/product?category=Men"
             className="shrink-0 text-xs font-semibold text-gray-700"
@@ -1034,6 +1040,7 @@ export default function Navbar() {
           >
             Accessories
           </Link>
+
         </div>
       </div>
     </div>
