@@ -224,6 +224,90 @@ function getSuggestionIcon(type: Suggestion["type"]) {
   }
 }
 
+function SearchIcon({
+  size = 18,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-4-4" />
+    </svg>
+  );
+}
+
+function UserIcon({
+  size = 20,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c.8-3.4 3.2-5 7-5s6.2 1.6 7 5" />
+    </svg>
+  );
+}
+
+function WishlistIcon({
+  size = 21,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
+      <path d="M20.8 8.7c0 5.5-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z" />
+    </svg>
+  );
+}
+
+function CartIcon({
+  size = 18,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="20" r="1.4" />
+      <circle cx="18" cy="20" r="1.4" />
+      <path d="M3 4h2l2.2 11h11.3l2-8H6" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -232,23 +316,39 @@ export default function Navbar() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
 
-  const searchWrapperRef = useRef<HTMLDivElement>(null);
-  const mobileSearchWrapperRef = useRef<HTMLDivElement>(null);
+  const desktopSearchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     async function checkSession() {
-      const session = await getSession();
+      try {
+        const session = await getSession();
 
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
+        if (!mounted) return;
+
+        if (session?.user) {
+          setUser(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch {
+        if (mounted) {
+          setUser(null);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     }
 
     checkSession();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -256,10 +356,10 @@ export default function Navbar() {
       const target = event.target as Node;
 
       const desktopInside =
-        searchWrapperRef.current?.contains(target) ?? false;
+        desktopSearchRef.current?.contains(target) ?? false;
 
       const mobileInside =
-        mobileSearchWrapperRef.current?.contains(target) ?? false;
+        mobileSearchRef.current?.contains(target) ?? false;
 
       if (!desktopInside && !mobileInside) {
         setShowSuggestions(false);
@@ -287,7 +387,7 @@ export default function Navbar() {
 
     const queryWords = query.split(" ").filter(Boolean);
 
-    const results = SEARCH_SUGGESTIONS
+    return SEARCH_SUGGESTIONS
       .map((item, index) => {
         const normalized = normalizeText(item.text);
 
@@ -330,8 +430,6 @@ export default function Navbar() {
         return a.index - b.index;
       })
       .slice(0, 8);
-
-    return results;
   }
 
   const suggestions = getSuggestions(search);
@@ -368,13 +466,9 @@ export default function Navbar() {
     if (e.key === "ArrowDown") {
       e.preventDefault();
 
-      setActiveSuggestion((current) => {
-        if (current >= suggestions.length - 1) {
-          return 0;
-        }
-
-        return current + 1;
-      });
+      setActiveSuggestion((current) =>
+        current >= suggestions.length - 1 ? 0 : current + 1
+      );
 
       return;
     }
@@ -382,13 +476,9 @@ export default function Navbar() {
     if (e.key === "ArrowUp") {
       e.preventDefault();
 
-      setActiveSuggestion((current) => {
-        if (current <= 0) {
-          return suggestions.length - 1;
-        }
-
-        return current - 1;
-      });
+      setActiveSuggestion((current) =>
+        current <= 0 ? suggestions.length - 1 : current - 1
+      );
 
       return;
     }
@@ -418,66 +508,69 @@ export default function Navbar() {
   function handleInputChange(value: string) {
     setSearch(value);
     setActiveSuggestion(-1);
+    setShowSuggestions(Boolean(value.trim()));
+  }
 
-    if (value.trim()) {
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
-    }
+  function clearSearch() {
+    setSearch("");
+    setShowSuggestions(false);
+    setActiveSuggestion(-1);
   }
 
   return (
-    <>
-      {/* ================= TOP UTILITY BAR ================= */}
-      <div className="bg-[#07152f] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-9 flex items-center justify-between text-[11px] sm:text-xs">
-          <p className="tracking-wide text-gray-300">
+    <div className="w-full max-w-[100vw] overflow-x-hidden">
+      {/* ========================================================= */}
+      {/* TOP UTILITY BAR                                           */}
+      {/* ========================================================= */}
+
+      <div className="w-full bg-[#07152f] text-white">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 h-8 sm:h-9 flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-[10px] sm:text-xs tracking-wide text-gray-300">
             Fashion Without Tym Limits
           </p>
 
-          <div className="hidden sm:flex items-center gap-5 text-gray-300">
+          <div className="hidden lg:flex items-center gap-5 text-xs text-gray-300 shrink-0">
             <span>Fast &amp; Reliable 1–2 Hour Delivery</span>
-
             <span className="text-gray-600">|</span>
-
             <span>Premium Fashion. Delivered Fast.</span>
           </div>
         </div>
       </div>
 
-      {/* ================= MAIN NAVBAR ================= */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="min-h-[78px] flex items-center justify-between gap-5">
+      {/* ========================================================= */}
+      {/* MAIN HEADER                                                */}
+      {/* ========================================================= */}
 
-            {/* ================= LOGO ================= */}
+      <header className="w-full bg-white border-b border-gray-200">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6">
+
+          {/* ===================================================== */}
+          {/* TOP ROW                                                */}
+          {/* ===================================================== */}
+
+          <div className="min-w-0 min-h-[62px] sm:min-h-[76px] flex items-center gap-2 sm:gap-4">
+
+            {/* LOGO */}
+
             <Link
               href="/"
-              className="shrink-0 text-[27px] sm:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
+              className="shrink-0 whitespace-nowrap text-[22px] xs:text-[23px] sm:text-[28px] lg:text-[31px] font-black tracking-[-1.5px] text-[#07152f]"
             >
               ClothTym
             </Link>
 
-            {/* ================= DESKTOP SEARCH ================= */}
+            {/* DESKTOP SEARCH */}
+
             <div
-              ref={searchWrapperRef}
-              className="hidden md:flex flex-1 max-w-[560px] relative"
+              ref={desktopSearchRef}
+              className="hidden md:flex flex-1 min-w-0 max-w-[600px] mx-auto relative"
             >
               <form onSubmit={handleSearch} className="w-full">
-                <div className="w-full h-[48px] rounded-full border border-gray-300 bg-[#f7f7f7] flex items-center px-4 transition focus-within:border-[#07152f] focus-within:bg-white">
+                <div className="w-full h-[46px] lg:h-[48px] rounded-full border border-gray-300 bg-[#f7f7f7] flex items-center px-3 lg:px-4 transition focus-within:border-[#07152f] focus-within:bg-white">
 
-                  <svg
-                    width="19"
-                    height="19"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="text-gray-500 shrink-0"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-4-4" />
-                  </svg>
+                  <span className="text-gray-500 shrink-0">
+                    <SearchIcon size={18} />
+                  </span>
 
                   <input
                     type="text"
@@ -493,19 +586,15 @@ export default function Navbar() {
                     onKeyDown={handleSearchKeyDown}
                     placeholder="Search for fashion, products and more"
                     autoComplete="off"
-                    className="flex-1 bg-transparent outline-none px-3 text-sm text-black placeholder:text-gray-500"
+                    className="min-w-0 flex-1 bg-transparent outline-none px-3 text-sm text-black placeholder:text-gray-500"
                   />
 
                   {search.trim() && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearch("");
-                        setShowSuggestions(false);
-                        setActiveSuggestion(-1);
-                      }}
+                      onClick={clearSearch}
                       aria-label="Clear search"
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-black transition mr-1"
+                      className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
                     >
                       ×
                     </button>
@@ -513,24 +602,24 @@ export default function Navbar() {
 
                   <button
                     type="submit"
-                    className="bg-[#07152f] text-white rounded-full px-5 h-[36px] text-sm font-semibold hover:bg-black transition"
+                    className="shrink-0 bg-[#07152f] text-white rounded-full px-4 lg:px-5 h-[36px] text-xs lg:text-sm font-semibold hover:bg-black transition"
                   >
                     Search
                   </button>
                 </div>
               </form>
 
-              {/* ================= DESKTOP SUGGESTIONS ================= */}
-              {showSuggestions && search.trim() && (
-                <div className="absolute top-[56px] left-0 right-0 z-50 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+              {/* DESKTOP SUGGESTIONS */}
 
+              {showSuggestions && search.trim() && (
+                <div className="absolute top-[54px] left-0 right-0 z-[100] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
                   {suggestions.length > 0 ? (
                     <>
                       <div className="px-4 py-3 border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                         Search suggestions
                       </div>
 
-                      <div className="py-1">
+                      <div className="py-1 max-h-[420px] overflow-y-auto">
                         {suggestions.map((suggestion, index) => (
                           <button
                             key={`${suggestion.text}-${index}`}
@@ -567,6 +656,7 @@ export default function Navbar() {
                               stroke="currentColor"
                               strokeWidth="2"
                               className="text-gray-400 shrink-0"
+                              aria-hidden="true"
                             >
                               <path d="m9 18 6-6-6-6" />
                             </svg>
@@ -587,12 +677,12 @@ export default function Navbar() {
                       }}
                       className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 transition"
                     >
-                      <span className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                      <span className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
                         ⌕
                       </span>
 
-                      <span>
-                        <span className="block text-sm font-semibold text-gray-900">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-gray-900 truncate">
                           Search for “{search.trim()}”
                         </span>
 
@@ -606,71 +696,47 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* ================= RIGHT ACTIONS ================= */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* ================================================= */}
+            {/* DESKTOP ACTIONS                                    */}
+            {/* ================================================= */}
+
+            <div className="hidden md:flex items-center gap-1 lg:gap-2 shrink-0">
 
               {/* WISHLIST */}
+
               <Link
-                href="/product"
+                href="/wishlist"
                 aria-label="Wishlist"
-                className="hidden sm:flex w-10 h-10 rounded-full items-center justify-center hover:bg-gray-100 transition"
+                className="w-10 h-10 lg:w-11 lg:h-11 rounded-full flex items-center justify-center hover:bg-gray-100 transition"
               >
-                <svg
-                  width="21"
-                  height="21"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                >
-                  <path d="M20.8 8.7c0 5.5-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z" />
-                </svg>
+                <WishlistIcon />
               </Link>
 
               {/* LOGIN */}
+
               {!loading && !user && (
                 <Link
                   href="/login"
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-sm font-semibold text-black hover:border-black hover:bg-gray-50 transition"
+                  className="flex items-center gap-2 px-3 lg:px-4 py-2 rounded-full border border-gray-300 text-sm font-semibold text-black hover:border-black hover:bg-gray-50 transition whitespace-nowrap"
                 >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="8" r="3.5" />
-                    <path d="M5 20c.8-3.4 3.2-5 7-5s6.2 1.6 7 5" />
-                  </svg>
-                  Login
+                  <UserIcon size={18} />
+                  <span>Login</span>
                 </Link>
               )}
 
               {/* LOGGED-IN USER */}
-              {!loading && user && (
-                <div className="hidden sm:flex items-center gap-2">
 
+              {!loading && user && (
+                <div className="flex items-center gap-1 lg:gap-2">
                   <Link
                     href="/profile"
-                    className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 transition"
+                    className="flex items-center gap-2 px-2 lg:px-3 py-2 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 transition max-w-[160px]"
                   >
-                    <div className="w-8 h-8 rounded-full bg-[#07152f] text-white flex items-center justify-center">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <circle cx="12" cy="8" r="3.5" />
-                        <path d="M5 20c.8-3.4 3.2-5 7-5s6.2 1.6 7 5" />
-                      </svg>
+                    <div className="w-8 h-8 rounded-full bg-[#07152f] text-white flex items-center justify-center shrink-0">
+                      <UserIcon size={16} />
                     </div>
 
-                    <span className="max-w-[110px] truncate text-sm font-semibold text-black">
+                    <span className="max-w-[90px] truncate text-sm font-semibold text-black">
                       {user.name || user.email}
                     </span>
                   </Link>
@@ -678,7 +744,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="px-3 py-2 text-sm font-semibold text-gray-600 hover:text-black transition"
+                    className="px-2 lg:px-3 py-2 text-sm font-semibold text-gray-600 hover:text-black transition whitespace-nowrap"
                   >
                     Logout
                   </button>
@@ -686,48 +752,83 @@ export default function Navbar() {
               )}
 
               {/* CART */}
+
               <Link
                 href="/cart"
-                className="h-10 px-4 sm:px-5 rounded-full bg-[#07152f] text-white flex items-center gap-2 text-sm font-semibold hover:bg-black transition"
+                className="h-10 lg:h-11 px-3 lg:px-5 rounded-full bg-[#07152f] text-white flex items-center gap-1.5 lg:gap-2 text-xs lg:text-sm font-semibold hover:bg-black transition whitespace-nowrap"
               >
-                <svg
-                  width="19"
-                  height="19"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="9" cy="20" r="1.4" />
-                  <circle cx="18" cy="20" r="1.4" />
-                  <path d="M3 4h2l2.2 11h11.3l2-8H6" />
-                </svg>
+                <CartIcon />
+                <span>Cart</span>
+              </Link>
+            </div>
 
+            {/* ================================================= */}
+            {/* MOBILE ACTIONS                                    */}
+            {/* ================================================= */}
+
+            <div className="md:hidden ml-auto min-w-0 flex items-center justify-end gap-0.5 shrink-0">
+
+              {/* MOBILE WISHLIST */}
+
+              <Link
+                href="/wishlist"
+                aria-label="Wishlist"
+                className="w-10 h-10 min-w-10 shrink-0 rounded-full flex items-center justify-center text-[#07152f] active:bg-gray-100"
+              >
+                <WishlistIcon size={20} />
+              </Link>
+
+              {/* MOBILE LOGIN */}
+
+              {!loading && !user && (
+                <Link
+                  href="/login"
+                  aria-label="Login"
+                  className="w-10 h-10 min-w-10 shrink-0 rounded-full flex items-center justify-center text-[#07152f] active:bg-gray-100"
+                >
+                  <UserIcon size={20} />
+                </Link>
+              )}
+
+              {/* MOBILE PROFILE */}
+
+              {!loading && user && (
+                <Link
+                  href="/profile"
+                  aria-label="Profile"
+                  className="w-10 h-10 min-w-10 shrink-0 rounded-full bg-[#07152f] text-white flex items-center justify-center"
+                >
+                  <UserIcon size={18} />
+                </Link>
+              )}
+
+              {/* MOBILE CART */}
+
+              <Link
+                href="/cart"
+                aria-label="Cart"
+                className="h-10 min-w-[58px] shrink-0 px-2.5 rounded-full bg-[#07152f] text-white flex items-center justify-center gap-1.5 text-[11px] font-semibold active:bg-black"
+              >
+                <CartIcon size={17} />
                 <span>Cart</span>
               </Link>
             </div>
           </div>
 
-          {/* ================= MOBILE SEARCH ================= */}
+          {/* ===================================================== */}
+          {/* MOBILE SEARCH                                         */}
+          {/* ===================================================== */}
+
           <div
-            ref={mobileSearchWrapperRef}
-            className="md:hidden relative pb-4"
+            ref={mobileSearchRef}
+            className="md:hidden relative pb-3"
           >
             <form onSubmit={handleSearch}>
-              <div className="h-[46px] rounded-full border border-gray-300 bg-[#f7f7f7] flex items-center px-4">
+              <div className="w-full h-[46px] rounded-full border border-gray-300 bg-[#f7f7f7] flex items-center px-2.5 focus-within:border-[#07152f] focus-within:bg-white">
 
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="text-gray-500 shrink-0"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-4-4" />
-                </svg>
+                <span className="text-gray-500 shrink-0">
+                  <SearchIcon size={18} />
+                </span>
 
                 <input
                   type="text"
@@ -743,19 +844,15 @@ export default function Navbar() {
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Search fashion & products..."
                   autoComplete="off"
-                  className="flex-1 bg-transparent outline-none px-3 text-sm"
+                  className="min-w-0 flex-1 bg-transparent outline-none px-2.5 text-[16px] text-black placeholder:text-gray-500"
                 />
 
                 {search.trim() && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setShowSuggestions(false);
-                      setActiveSuggestion(-1);
-                    }}
+                    onClick={clearSearch}
                     aria-label="Clear search"
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 transition mr-1"
+                    className="w-8 h-8 min-w-8 shrink-0 rounded-full flex items-center justify-center text-gray-500 active:bg-gray-200 mr-0.5"
                   >
                     ×
                   </button>
@@ -764,27 +861,17 @@ export default function Navbar() {
                 <button
                   type="submit"
                   aria-label="Search"
-                  className="w-9 h-9 rounded-full bg-[#07152f] text-white flex items-center justify-center"
+                  className="w-9 h-9 min-w-9 shrink-0 rounded-full bg-[#07152f] text-white flex items-center justify-center"
                 >
-                  <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-4-4" />
-                  </svg>
+                  <SearchIcon size={17} />
                 </button>
               </div>
             </form>
 
-            {/* ================= MOBILE SUGGESTIONS ================= */}
-            {showSuggestions && search.trim() && (
-              <div className="absolute top-[52px] left-0 right-0 z-50 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+            {/* MOBILE SUGGESTIONS */}
 
+            {showSuggestions && search.trim() && (
+              <div className="absolute top-[51px] left-0 right-0 z-[100] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
                 {suggestions.length > 0 ? (
                   <>
                     <div className="px-4 py-3 border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
@@ -828,6 +915,7 @@ export default function Navbar() {
                             stroke="currentColor"
                             strokeWidth="2"
                             className="text-gray-400 shrink-0"
+                            aria-hidden="true"
                           >
                             <path d="m9 18 6-6-6-6" />
                           </svg>
@@ -844,12 +932,12 @@ export default function Navbar() {
                     }}
                     className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 transition"
                   >
-                    <span className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                    <span className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
                       ⌕
                     </span>
 
-                    <span>
-                      <span className="block text-sm font-semibold text-gray-900">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-gray-900 truncate">
                         Search for “{search.trim()}”
                       </span>
 
@@ -863,99 +951,91 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* ================= CATEGORY NAVIGATION ================= */}
-          <div className="hidden md:flex items-center justify-center gap-8 border-t border-gray-100 h-[48px]">
+          {/* ===================================================== */}
+          {/* DESKTOP CATEGORY NAVIGATION                           */}
+          {/* ===================================================== */}
 
-            {/* MEN */}
+          <div className="hidden md:flex items-center justify-center gap-7 lg:gap-9 border-t border-gray-100 h-[46px]">
             <Link
-              href="/product?search=Men"
+              href="/product?category=Men"
               className="text-sm font-semibold text-gray-700 hover:text-black transition"
             >
               Men
             </Link>
 
-            {/* WOMEN */}
             <Link
-              href="/product?search=Women"
+              href="/product?category=Women"
               className="text-sm font-semibold text-gray-700 hover:text-black transition"
             >
               Women
             </Link>
 
-            {/* KIDS */}
             <Link
-              href="/product?search=Kids"
+              href="/product?category=Kids"
               className="text-sm font-semibold text-gray-700 hover:text-black transition"
             >
               Kids
             </Link>
 
-            {/* FOOTWEAR */}
             <Link
-              href="/product?search=Footwear"
+              href="/product?category=Footwear"
               className="text-sm font-semibold text-gray-700 hover:text-black transition"
             >
               Footwear
             </Link>
 
-            {/* ACCESSORIES */}
             <Link
-              href="/product?search=Accessories"
+              href="/product?category=Accessories"
               className="text-sm font-semibold text-gray-700 hover:text-black transition"
             >
               Accessories
             </Link>
-
           </div>
         </div>
       </header>
 
-      {/* ================= MOBILE CATEGORY NAVIGATION ================= */}
-      <div className="md:hidden bg-white border-b border-gray-200 overflow-x-auto">
-        <div className="max-w-7xl mx-auto px-4 flex items-center gap-6 h-[45px] whitespace-nowrap">
+      {/* ========================================================= */}
+      {/* MOBILE CATEGORY NAVIGATION                               */}
+      {/* ========================================================= */}
 
-          {/* MEN */}
+      <div className="md:hidden w-full max-w-[100vw] bg-white border-b border-gray-200 overflow-x-auto overscroll-x-contain">
+        <div className="w-max min-w-full px-4 flex items-center gap-6 h-[43px] whitespace-nowrap">
           <Link
-            href="/product?search=Men"
-            className="text-xs font-semibold text-gray-700"
+            href="/product?category=Men"
+            className="shrink-0 text-xs font-semibold text-gray-700"
           >
             Men
           </Link>
 
-          {/* WOMEN */}
           <Link
-            href="/product?search=Women"
-            className="text-xs font-semibold text-gray-700"
+            href="/product?category=Women"
+            className="shrink-0 text-xs font-semibold text-gray-700"
           >
             Women
           </Link>
 
-          {/* KIDS */}
           <Link
-            href="/product?search=Kids"
-            className="text-xs font-semibold text-gray-700"
+            href="/product?category=Kids"
+            className="shrink-0 text-xs font-semibold text-gray-700"
           >
             Kids
           </Link>
 
-          {/* FOOTWEAR */}
           <Link
-            href="/product?search=Footwear"
-            className="text-xs font-semibold text-gray-700"
+            href="/product?category=Footwear"
+            className="shrink-0 text-xs font-semibold text-gray-700"
           >
             Footwear
           </Link>
 
-          {/* ACCESSORIES */}
           <Link
-            href="/product?search=Accessories"
-            className="text-xs font-semibold text-gray-700"
+            href="/product?category=Accessories"
+            className="shrink-0 text-xs font-semibold text-gray-700"
           >
             Accessories
           </Link>
-
         </div>
       </div>
-    </>
+    </div>
   );
 }
