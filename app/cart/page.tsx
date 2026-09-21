@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 type CartItem = {
   id?: string;
@@ -23,6 +25,27 @@ type CartSummary = {
   total: number;
 };
 
+type AddressForm = {
+  house: string;
+  area: string;
+  landmark: string;
+  city: string;
+  state: string;
+  pincode: string;
+};
+
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+type ReverseAddress = {
+  area: string;
+  city: string;
+  state: string;
+  pincode: string;
+};
+
 export default function CartPage() {
   const router = useRouter();
 
@@ -37,10 +60,90 @@ export default function CartPage() {
   const [updating, setUpdating] = useState(false);
 
   const [showCheckout, setShowCheckout] = useState(false);
-  const [address, setAddress] = useState("");
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [checkoutMessage, setCheckoutMessage] = useState("");
-  const [cartMessage, setCartMessage] = useState("");
+
+  /*
+   * ---------------------------------------------------------
+   * DELIVERY ADDRESS
+   * ---------------------------------------------------------
+   */
+
+  const [addressForm, setAddressForm] =
+    useState<AddressForm>({
+      house: "",
+      area: "",
+      landmark: "",
+      city: "",
+      state: "",
+      pincode: "",
+    });
+
+  const [coordinates, setCoordinates] =
+    useState<Coordinates | null>(null);
+
+  const [locating, setLocating] =
+    useState(false);
+
+  const [locationMessage, setLocationMessage] =
+    useState("");
+
+  const [locationError, setLocationError] =
+    useState("");
+
+  const [addressType, setAddressType] =
+    useState<"HOME" | "OFFICE">("HOME");
+
+  const [address, setAddress] =
+    useState("");
+
+  const [placingOrder, setPlacingOrder] =
+    useState(false);
+
+  const [checkoutMessage, setCheckoutMessage] =
+    useState("");
+
+  const [cartMessage, setCartMessage] =
+    useState("");
+
+  /*
+   * ---------------------------------------------------------
+   * LEAFLET MAP REFS
+   * ---------------------------------------------------------
+   */
+
+  const mapContainerRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const mapRef =
+    useRef<L.Map | null>(null);
+
+  const markerRef =
+    useRef<L.Marker | null>(null);
+
+  /*
+   * Prevent automatic GPS from running more than
+   * once for the current checkout opening.
+   */
+  const locationAttemptedRef =
+    useRef(false);
+
+  /* =========================================================
+     KEEP FINAL ADDRESS STRING UPDATED
+  ========================================================= */
+
+  useEffect(() => {
+    const parts = [
+      addressForm.house,
+      addressForm.area,
+      addressForm.landmark,
+      addressForm.city,
+      addressForm.state,
+      addressForm.pincode,
+    ].filter(
+      (value) => value.trim() !== ""
+    );
+
+    setAddress(parts.join(", "));
+  }, [addressForm]);
 
   /* =========================================================
      LOAD CART FROM DATABASE
@@ -54,19 +157,6 @@ export default function CartPage() {
     try {
       setLoading(true);
       setCartMessage("");
-
-      /*
-       * -------------------------------------------------------
-       * ONE-TIME LOCAL CART MIGRATION
-       *
-       * Old cart data may still exist in:
-       * clothtym_cart
-       *
-       * We try to move it to the database.
-       * Product price is NOT taken from localStorage.
-       * The API gets the real price from Product table.
-       * -------------------------------------------------------
-       */
 
       const migrationDone =
         localStorage.getItem(
@@ -103,7 +193,8 @@ export default function CartPage() {
                 };
 
                 if (
-                  typeof oldItem.productId !== "string" ||
+                  typeof oldItem.productId !==
+                    "string" ||
                   oldItem.productId.trim() === ""
                 ) {
                   migrationSuccessful = false;
@@ -111,8 +202,11 @@ export default function CartPage() {
                 }
 
                 const quantity =
-                  typeof oldItem.quantity === "number" &&
-                  Number.isInteger(oldItem.quantity) &&
+                  typeof oldItem.quantity ===
+                    "number" &&
+                  Number.isInteger(
+                    oldItem.quantity
+                  ) &&
                   oldItem.quantity > 0
                     ? oldItem.quantity
                     : 1;
@@ -141,10 +235,6 @@ export default function CartPage() {
                     }),
                   });
 
-                /*
-                 * 401 means user is not logged in.
-                 * In that case don't mark migration complete.
-                 */
                 if (response.status === 401) {
                   migrationSuccessful = false;
                   break;
@@ -179,10 +269,6 @@ export default function CartPage() {
           );
         }
       }
-
-      /* -------------------------------------------------------
-         LOAD REAL DATABASE CART
-      ------------------------------------------------------- */
 
       const response = await fetch(
         "/api/cart",
@@ -224,7 +310,8 @@ export default function CartPage() {
 
       setSummary({
         subtotal:
-          Number(data?.summary?.subtotal) || 0,
+          Number(data?.summary?.subtotal) ||
+          0,
         deliveryCharge:
           Number(
             data?.summary?.deliveryCharge
@@ -257,7 +344,7 @@ export default function CartPage() {
   }
 
   /* =========================================================
-     REFRESH CART AFTER API CHANGE
+     REFRESH CART
   ========================================================= */
 
   async function refreshCart() {
@@ -287,7 +374,8 @@ export default function CartPage() {
 
       setSummary({
         subtotal:
-          Number(data?.summary?.subtotal) || 0,
+          Number(data?.summary?.subtotal) ||
+          0,
         deliveryCharge:
           Number(
             data?.summary?.deliveryCharge
@@ -381,10 +469,6 @@ export default function CartPage() {
     }
   }
 
-  /* =========================================================
-     INCREASE
-  ========================================================= */
-
   async function increaseQuantity(
     item: CartItem
   ) {
@@ -393,10 +477,6 @@ export default function CartPage() {
       item.quantity + 1
     );
   }
-
-  /* =========================================================
-     DECREASE
-  ========================================================= */
 
   async function decreaseQuantity(
     item: CartItem
@@ -498,6 +578,7 @@ export default function CartPage() {
       }
 
       setCart([]);
+
       setSummary({
         subtotal: 0,
         deliveryCharge: 0,
@@ -524,7 +605,582 @@ export default function CartPage() {
   }
 
   /* =========================================================
-     CHECKOUT
+     ADDRESS FIELD UPDATE
+  ========================================================= */
+
+  function updateAddressField(
+    field: keyof AddressForm,
+    value: string
+  ) {
+    setAddressForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
+
+  /* =========================================================
+     REVERSE GEOCODING
+  ========================================================= */
+
+  async function reverseGeocode(
+    latitude: number,
+    longitude: number
+  ): Promise<ReverseAddress> {
+    const url = new URL(
+      "https://api.bigdatacloud.net/data/reverse-geocode-client"
+    );
+
+    url.searchParams.set(
+      "latitude",
+      String(latitude)
+    );
+
+    url.searchParams.set(
+      "longitude",
+      String(longitude)
+    );
+
+    url.searchParams.set(
+      "localityLanguage",
+      "en"
+    );
+
+    const response = await fetch(
+      url.toString(),
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Address could not be detected."
+      );
+    }
+
+    const data = await response.json();
+
+    const detectedArea =
+      data?.locality ||
+      data?.localityInfo?.administrative?.[
+        3
+      ]?.name ||
+      data?.city ||
+      data?.principalSubdivision ||
+      "";
+
+    const detectedCity =
+      data?.city ||
+      data?.locality ||
+      data?.localityInfo?.administrative?.[
+        2
+      ]?.name ||
+      "";
+
+    const detectedState =
+      data?.principalSubdivision ||
+      data?.localityInfo?.administrative?.[
+        1
+      ]?.name ||
+      "";
+
+    const detectedPincode =
+      data?.postcode ||
+      data?.postalCode ||
+      "";
+
+    return {
+      area: String(
+        detectedArea || ""
+      ),
+      city: String(
+        detectedCity || ""
+      ),
+      state: String(
+        detectedState || ""
+      ),
+      pincode: String(
+        detectedPincode || ""
+      ),
+    };
+  }
+
+  /* =========================================================
+     UPDATE ADDRESS FROM COORDINATES
+  ========================================================= */
+
+  async function updateAddressFromCoordinates(
+    latitude: number,
+    longitude: number,
+    showMessage = true
+  ) {
+    try {
+      if (showMessage) {
+        setLocationMessage(
+          "Finding address for this location..."
+        );
+        setLocationError("");
+      }
+
+      const detected =
+        await reverseGeocode(
+          latitude,
+          longitude
+        );
+
+      setAddressForm((previous) => ({
+        ...previous,
+
+        /*
+         * House and landmark are always manual.
+         *
+         * Area/City/State/Pincode are updated from
+         * the selected GPS location.
+         */
+        area:
+          detected.area ||
+          previous.area,
+
+        city:
+          detected.city ||
+          previous.city,
+
+        state:
+          detected.state ||
+          previous.state,
+
+        pincode:
+          detected.pincode ||
+          previous.pincode,
+      }));
+
+      if (showMessage) {
+        if (detected.pincode) {
+          setLocationMessage(
+            "✓ Location detected. Address and pincode updated."
+          );
+        } else {
+          setLocationMessage(
+            "✓ Location detected. Please enter your pincode if it is not shown."
+          );
+        }
+      }
+
+      return detected;
+    } catch (error) {
+      console.error(
+        "REVERSE GEOCODE ERROR:",
+        error
+      );
+
+      if (showMessage) {
+        setLocationError(
+          "Location detected, but address details could not be fetched. Please enter them manually."
+        );
+
+        setLocationMessage("");
+      }
+
+      return null;
+    }
+  }
+
+  /* =========================================================
+     CURRENT LOCATION
+  ========================================================= */
+
+  async function useCurrentLocation() {
+    setLocationError("");
+    setLocationMessage("");
+
+    if (
+      typeof window === "undefined" ||
+      !navigator.geolocation
+    ) {
+      setLocationError(
+        "Location is not supported by this browser."
+      );
+      return;
+    }
+
+    try {
+      setLocating(true);
+
+      setLocationMessage(
+        "Requesting your current location..."
+      );
+
+      const position =
+        await new Promise<GeolocationPosition>(
+          (resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              resolve,
+              reject,
+              {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0,
+              }
+            );
+          }
+        );
+
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      setCoordinates({
+        latitude,
+        longitude,
+      });
+
+      setLocationMessage(
+        "Location detected. Finding your address..."
+      );
+
+      await updateAddressFromCoordinates(
+        latitude,
+        longitude,
+        true
+      );
+    } catch (error) {
+      console.error(
+        "CURRENT LOCATION ERROR:",
+        error
+      );
+
+      let message =
+        "Unable to detect your location.";
+
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error
+      ) {
+        const locationErrorObject =
+          error as GeolocationPositionError;
+
+        if (
+          locationErrorObject.code ===
+          1
+        ) {
+          message =
+            "Location permission was denied. Please allow location access and try again.";
+        } else if (
+          locationErrorObject.code ===
+          2
+        ) {
+          message =
+            "Your current location is unavailable. Please try again.";
+        } else if (
+          locationErrorObject.code ===
+          3
+        ) {
+          message =
+            "Location request timed out. Please try again.";
+        }
+      } else if (
+        error instanceof Error
+      ) {
+        message = error.message;
+      }
+
+      setLocationError(message);
+      setLocationMessage("");
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  /* =========================================================
+     AUTOMATIC GPS WHEN CHECKOUT OPENS
+  ========================================================= */
+
+  async function openCheckout() {
+    setCheckoutMessage("");
+    setShowCheckout(true);
+
+    /*
+     * Browser permission request must originate from
+     * a user interaction. Because this function runs
+     * directly from the Proceed to Checkout button,
+     * the browser can show the location permission prompt.
+     */
+    if (!locationAttemptedRef.current) {
+      locationAttemptedRef.current = true;
+      await useCurrentLocation();
+    }
+  }
+
+  /* =========================================================
+     LEAFLET MAP
+  ========================================================= */
+
+  useEffect(() => {
+    if (
+      !showCheckout ||
+      !coordinates ||
+      !mapContainerRef.current
+    ) {
+      return;
+    }
+
+    /*
+     * Initialize map only once.
+     */
+    if (!mapRef.current) {
+      const map = L.map(
+        mapContainerRef.current,
+        {
+          center: [
+            coordinates.latitude,
+            coordinates.longitude,
+          ],
+          zoom: 16,
+          zoomControl: false,
+          attributionControl: true,
+        }
+      );
+
+      /*
+       * Premium-looking standard OSM map layer.
+       */
+      L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 20,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+        }
+      ).addTo(map);
+
+      /*
+       * Put zoom controls in bottom-right.
+       */
+      L.control
+        .zoom({
+          position: "bottomright",
+        })
+        .addTo(map);
+
+      /*
+       * Custom premium marker.
+       * This avoids Leaflet's default icon-path issue
+       * in Next.js builds.
+       */
+      const markerIcon =
+        L.divIcon({
+          className:
+            "clothtym-map-marker-wrapper",
+          html: `
+            <div style="
+              width:42px;
+              height:42px;
+              border-radius:50% 50% 50% 0;
+              background:#07152f;
+              border:4px solid white;
+              box-shadow:0 5px 18px rgba(0,0,0,.30);
+              transform:rotate(-45deg);
+              display:flex;
+              align-items:center;
+              justify-content:center;
+            ">
+              <div style="
+                width:12px;
+                height:12px;
+                border-radius:50%;
+                background:white;
+                transform:rotate(45deg);
+              "></div>
+            </div>
+          `,
+          iconSize: [
+            42,
+            42,
+          ],
+          iconAnchor: [
+            21,
+            42,
+          ],
+        });
+
+      const marker =
+        L.marker(
+          [
+            coordinates.latitude,
+            coordinates.longitude,
+          ],
+          {
+            draggable: true,
+            icon: markerIcon,
+          }
+        ).addTo(map);
+
+      marker.bindPopup(
+        `
+          <div style="
+            min-width:180px;
+            font-family:Arial,sans-serif;
+          ">
+            <strong style="
+              color:#07152f;
+              font-size:14px;
+            ">
+              Delivery Location
+            </strong>
+            <div style="
+              margin-top:5px;
+              color:#666;
+              font-size:12px;
+            ">
+              Drag the pin to adjust your location.
+            </div>
+          </div>
+        `
+      );
+
+      /*
+       * Dragging marker changes the delivery location.
+       */
+      marker.on(
+        "dragend",
+        async () => {
+          const position =
+            marker.getLatLng();
+
+          const nextCoordinates = {
+            latitude:
+              position.lat,
+            longitude:
+              position.lng,
+          };
+
+          setCoordinates(
+            nextCoordinates
+          );
+
+          setLocating(true);
+          setLocationError("");
+          setLocationMessage(
+            "Pin moved. Updating address..."
+          );
+
+          await updateAddressFromCoordinates(
+            position.lat,
+            position.lng,
+            true
+          );
+
+          setLocating(false);
+        }
+      );
+
+      /*
+       * Clicking anywhere on the map moves the
+       * draggable marker to that point.
+       */
+      map.on(
+        "click",
+        async (event) => {
+          marker.setLatLng(
+            event.latlng
+          );
+
+          const nextCoordinates = {
+            latitude:
+              event.latlng.lat,
+            longitude:
+              event.latlng.lng,
+          };
+
+          setCoordinates(
+            nextCoordinates
+          );
+
+          setLocating(true);
+          setLocationError("");
+          setLocationMessage(
+            "Location changed. Updating address..."
+          );
+
+          await updateAddressFromCoordinates(
+            event.latlng.lat,
+            event.latlng.lng,
+            true
+          );
+
+          setLocating(false);
+        }
+      );
+
+      mapRef.current = map;
+      markerRef.current =
+        marker;
+    } else {
+      /*
+       * If coordinates changed because of GPS or
+       * another update, move the existing map.
+       */
+      const map = mapRef.current;
+      const marker =
+        markerRef.current;
+
+      map.setView(
+        [
+          coordinates.latitude,
+          coordinates.longitude,
+        ],
+        Math.max(
+          map.getZoom(),
+          16
+        ),
+        {
+          animate: true,
+        }
+      );
+
+      if (marker) {
+        marker.setLatLng([
+          coordinates.latitude,
+          coordinates.longitude,
+        ]);
+      }
+    }
+
+    /*
+     * Leaflet needs a resize refresh after the
+     * container becomes visible.
+     */
+    const resizeTimer =
+      window.setTimeout(() => {
+        mapRef.current?.invalidateSize();
+      }, 150);
+
+    return () => {
+      window.clearTimeout(
+        resizeTimer
+      );
+    };
+  }, [showCheckout, coordinates]);
+
+  /*
+   * Destroy Leaflet map when component unmounts.
+   */
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
+
+  /* =========================================================
+     PLACE ORDER
   ========================================================= */
 
   async function placeOrder() {
@@ -535,9 +1191,37 @@ export default function CartPage() {
       return;
     }
 
-    if (!address.trim()) {
+    const finalAddress = [
+      addressForm.house,
+      addressForm.area,
+      addressForm.landmark,
+      addressForm.city,
+      addressForm.state,
+      addressForm.pincode,
+    ]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    if (
+      !addressForm.house.trim() ||
+      !addressForm.area.trim() ||
+      !addressForm.city.trim() ||
+      !addressForm.state.trim() ||
+      !addressForm.pincode.trim()
+    ) {
       setCheckoutMessage(
-        "Please enter your delivery address."
+        "Please complete your delivery address."
+      );
+      return;
+    }
+
+    if (
+      addressForm.pincode.trim().length !==
+      6
+    ) {
+      setCheckoutMessage(
+        "Please enter a valid 6-digit pincode."
       );
       return;
     }
@@ -555,21 +1239,16 @@ export default function CartPage() {
               "application/json",
           },
           body: JSON.stringify({
-            address: address.trim(),
+            /*
+             * Existing orders API remains unchanged.
+             */
+            address: finalAddress,
             paymentMethod: "COD",
 
             items: cart.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
-
-              /*
-               * This is only sent because the existing
-               * orders API currently expects price.
-               * The Cart API itself always gets price
-               * from the Product database.
-               */
               price: Number(item.price),
-
               size: item.size || null,
               color: item.color || null,
             })),
@@ -592,6 +1271,7 @@ export default function CartPage() {
       }
 
       setCart([]);
+
       setSummary({
         subtotal: 0,
         deliveryCharge: 0,
@@ -649,19 +1329,17 @@ export default function CartPage() {
   }
 
   /* =========================================================
-     NOT LOGGED IN / CART API ERROR
+     NOT LOGGED IN
   ========================================================= */
 
   if (
     cartMessage ===
-      "Please login to view your cart."
+    "Please login to view your cart."
   ) {
     return (
       <main className="min-h-screen bg-[#f8fafc] text-gray-900">
-
         <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-
             <Link
               href="/"
               className="text-xl font-black tracking-wide text-[#07152f]"
@@ -675,14 +1353,11 @@ export default function CartPage() {
             >
               Login
             </Link>
-
           </div>
         </header>
 
         <div className="mx-auto max-w-7xl px-4 py-12">
-
           <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-
             <div className="text-7xl">
               🔐
             </div>
@@ -701,11 +1376,8 @@ export default function CartPage() {
             >
               Login to Continue →
             </Link>
-
           </div>
-
         </div>
-
       </main>
     );
   }
@@ -856,7 +1528,6 @@ export default function CartPage() {
                           {item.size && (
                             <p className="mt-2 text-sm font-semibold text-gray-500">
                               Size:
-
                               <span className="ml-1 font-black text-gray-800">
                                 {item.size}
                               </span>
@@ -866,7 +1537,6 @@ export default function CartPage() {
                           {item.color && (
                             <p className="mt-1 text-sm font-semibold text-gray-500">
                               Colour:
-
                               <span className="ml-1 font-black text-gray-800">
                                 {item.color}
                               </span>
@@ -888,8 +1558,6 @@ export default function CartPage() {
 
                       </div>
 
-                      {/* DATABASE PRICE */}
-
                       <div className="mt-3 text-xl font-black text-[#07152f]">
                         ₹
                         {Number(
@@ -898,8 +1566,6 @@ export default function CartPage() {
                           "en-IN"
                         )}
                       </div>
-
-                      {/* QUANTITY */}
 
                       <div className="mt-4 flex items-center justify-between">
 
@@ -945,14 +1611,12 @@ export default function CartPage() {
 
                           <p className="text-lg font-black">
                             ₹
-                            {(
-                              Number(
-                                item.itemTotal ??
-                                  Number(
-                                    item.price
-                                  ) *
-                                    item.quantity
-                              )
+                            {Number(
+                              item.itemTotal ??
+                                Number(
+                                  item.price
+                                ) *
+                                  item.quantity
                             ).toLocaleString(
                               "en-IN"
                             )}
@@ -969,8 +1633,6 @@ export default function CartPage() {
                 </div>
 
               ))}
-
-              {/* CLEAR CART */}
 
               <button
                 type="button"
@@ -993,8 +1655,6 @@ export default function CartPage() {
 
               <div className="mt-6 space-y-4">
 
-                {/* SUBTOTAL */}
-
                 <div className="flex justify-between text-gray-600">
 
                   <span>
@@ -1010,8 +1670,6 @@ export default function CartPage() {
 
                 </div>
 
-                {/* DELIVERY */}
-
                 <div className="flex justify-between text-gray-600">
 
                   <span>
@@ -1019,17 +1677,13 @@ export default function CartPage() {
                   </span>
 
                   <span className="font-bold text-gray-900">
-
                     {summary.deliveryCharge ===
                     0
                       ? "FREE"
                       : `₹${summary.deliveryCharge}`}
-
                   </span>
 
                 </div>
-
-                {/* TOTAL */}
 
                 <div className="border-t border-gray-200 pt-4">
 
@@ -1052,8 +1706,6 @@ export default function CartPage() {
 
               </div>
 
-              {/* FREE DELIVERY MESSAGE */}
-
               {summary.subtotal > 0 &&
                 summary.subtotal <
                   1000 && (
@@ -1071,7 +1723,7 @@ export default function CartPage() {
 
                   </div>
 
-                )}
+              )}
 
               {summary.subtotal >=
                 1000 && (
@@ -1088,12 +1740,7 @@ export default function CartPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setCheckoutMessage("");
-                    setShowCheckout(
-                      true
-                    );
-                  }}
+                  onClick={openCheckout}
                   className="mt-6 w-full rounded-xl bg-[#07152f] px-6 py-4 font-black text-white transition hover:opacity-90"
                 >
                   Proceed to Checkout →
@@ -1101,45 +1748,504 @@ export default function CartPage() {
 
               )}
 
-              {/* CHECKOUT */}
+              {/* =================================================
+                  CHECKOUT
+              ================================================= */}
 
               {showCheckout && (
 
                 <div className="mt-6 border-t border-gray-200 pt-6">
 
-                  <h3 className="text-xl font-black text-[#07152f]">
-                    Checkout
-                  </h3>
+                  {/* CHECKOUT HEADER */}
 
-                  {/* ADDRESS */}
+                  <div className="flex items-start justify-between gap-3">
 
-                  <label className="mt-5 block text-sm font-black">
-                    Delivery Address
-                  </label>
+                    <div>
 
-                  <textarea
-                    value={address}
-                    onChange={(event) =>
-                      setAddress(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Enter your complete delivery address"
-                    rows={5}
-                    className="mt-2 w-full rounded-xl border-2 border-gray-200 p-4 outline-none focus:border-[#07152f]"
-                  />
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                        Secure Checkout
+                      </p>
+
+                      <h3 className="mt-1 text-xl font-black text-[#07152f]">
+                        Delivery Details
+                      </h3>
+
+                    </div>
+
+                    <div className="rounded-full bg-green-50 px-3 py-1.5 text-[10px] font-black text-green-700">
+                      🔒 SECURE
+                    </div>
+
+                  </div>
+
+                  {/* ADDRESS HEADER */}
+
+                  <div className="mt-6">
+
+                    <div className="flex items-start justify-between gap-3">
+
+                      <div>
+
+                        <p className="text-base font-black text-[#07152f]">
+                          Delivery Address
+                        </p>
+
+                        <p className="mt-1 text-xs text-gray-500">
+                          Pin your exact delivery location
+                        </p>
+
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={
+                          useCurrentLocation
+                        }
+                        disabled={locating}
+                        className="shrink-0 rounded-xl border-2 border-[#07152f] bg-white px-3 py-2 text-xs font-black text-[#07152f] transition hover:bg-[#07152f] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {locating
+                          ? "Locating..."
+                          : "📍 Use Current Location"}
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* LOCATION SUCCESS */}
+
+                  {locationMessage && (
+                    <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3 text-xs font-bold text-green-700">
+                      {locationMessage}
+                    </div>
+                  )}
+
+                  {/* LOCATION ERROR */}
+
+                  {locationError && (
+                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
+                      {locationError}
+                    </div>
+                  )}
+
+                  {/* MAP */}
+
+                  {coordinates ? (
+
+                    <div className="relative mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-gray-100 shadow-sm">
+
+                      <div
+                        ref={
+                          mapContainerRef
+                        }
+                        className="h-[300px] w-full sm:h-[340px]"
+                      />
+
+                      {/* MAP TOP BADGE */}
+
+                      <div className="pointer-events-none absolute left-3 top-3 z-[500]">
+
+                        <div className="rounded-xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+
+                          <div className="flex items-center gap-2">
+
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#07152f] text-sm text-white">
+                              📍
+                            </span>
+
+                            <div>
+
+                              <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                                Delivery location
+                              </p>
+
+                              <p className="text-xs font-black text-[#07152f]">
+                                Drag pin to adjust
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                      {/* MAP BOTTOM INFO */}
+
+                      <div className="absolute bottom-3 left-3 right-3 z-[500]">
+
+                        <div className="rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-center text-[10px] font-bold text-gray-600 shadow-lg backdrop-blur">
+
+                          Move the pin to your exact doorstep location
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  ) : (
+
+                    <div className="mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+
+                      <div className="flex h-48 items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6 text-center">
+
+                        <div>
+
+                          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#07152f] text-2xl text-white shadow-lg">
+                            📍
+                          </div>
+
+                          <p className="mt-4 text-sm font-black text-[#07152f]">
+                            Detecting your location
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-gray-500">
+                            Allow location access to place your delivery pin on the map.
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                  {/* ADDRESS TYPE */}
+
+                  <div className="mt-6">
+
+                    <div className="flex items-center justify-between">
+
+                      <p className="text-xs font-black uppercase tracking-wide text-gray-500">
+                        Save address as
+                      </p>
+
+                      <span className="text-[10px] font-bold text-gray-400">
+                        Required
+                      </span>
+
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAddressType(
+                            "HOME"
+                          )
+                        }
+                        className={`rounded-2xl border-2 px-4 py-3.5 text-sm font-black transition ${
+                          addressType ===
+                          "HOME"
+                            ? "border-[#07152f] bg-[#07152f] text-white shadow-md"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                        }`}
+                      >
+                        🏠 HOME
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAddressType(
+                            "OFFICE"
+                          )
+                        }
+                        className={`rounded-2xl border-2 px-4 py-3.5 text-sm font-black transition ${
+                          addressType ===
+                          "OFFICE"
+                            ? "border-[#07152f] bg-[#07152f] text-white shadow-md"
+                            : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                        }`}
+                      >
+                        🏢 OFFICE
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* HOUSE */}
+
+                  <div className="mt-5">
+
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      House / Flat / Building *
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        addressForm.house
+                      }
+                      onChange={(event) =>
+                        updateAddressField(
+                          "house",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Flat / House No. / Building Name"
+                      autoComplete="street-address"
+                      className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                    />
+
+                  </div>
+
+                  {/* AREA */}
+
+                  <div className="mt-4">
+
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      Area / Locality *
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        addressForm.area
+                      }
+                      onChange={(event) =>
+                        updateAddressField(
+                          "area",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Area / Locality"
+                      autoComplete="address-line2"
+                      className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                    />
+
+                  </div>
+
+                  {/* LANDMARK */}
+
+                  <div className="mt-4">
+
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+
+                      Landmark
+
+                      <span className="ml-1 normal-case font-semibold text-gray-400">
+                        (optional)
+                      </span>
+
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        addressForm.landmark
+                      }
+                      onChange={(event) =>
+                        updateAddressField(
+                          "landmark",
+                          event.target.value
+                        )
+                      }
+                      placeholder="Nearby landmark"
+                      className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                    />
+
+                  </div>
+
+                  {/* CITY + STATE */}
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                    <div>
+
+                      <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                        City *
+                      </label>
+
+                      <input
+                        type="text"
+                        value={
+                          addressForm.city
+                        }
+                        onChange={(event) =>
+                          updateAddressField(
+                            "city",
+                            event.target.value
+                          )
+                        }
+                        placeholder="City"
+                        autoComplete="address-level2"
+                        className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                        State *
+                      </label>
+
+                      <input
+                        type="text"
+                        value={
+                          addressForm.state
+                        }
+                        onChange={(event) =>
+                          updateAddressField(
+                            "state",
+                            event.target.value
+                          )
+                        }
+                        placeholder="State"
+                        autoComplete="address-level1"
+                        className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                      />
+
+                    </div>
+
+                  </div>
+
+                  {/* PINCODE */}
+
+                  <div className="mt-4">
+
+                    <label className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      Pincode *
+                    </label>
+
+                    <div className="relative">
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={
+                          addressForm.pincode
+                        }
+                        onChange={(event) => {
+                          const value =
+                            event.target.value
+                              .replace(
+                                /\D/g,
+                                ""
+                              )
+                              .slice(
+                                0,
+                                6
+                              );
+
+                          updateAddressField(
+                            "pincode",
+                            value
+                          );
+                        }}
+                        placeholder="6-digit pincode"
+                        autoComplete="postal-code"
+                        className="mt-2 w-full rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#07152f] focus:ring-4 focus:ring-[#07152f]/5"
+                      />
+
+                      {addressForm.pincode.length ===
+                        6 && (
+                        <span className="absolute right-4 top-1/2 mt-1 -translate-y-1/2 text-sm font-black text-green-600">
+                          ✓
+                        </span>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  {/* GPS STATUS */}
+
+                  {coordinates && (
+
+                    <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+
+                      <div className="flex items-start gap-3">
+
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                          📍
+                        </div>
+
+                        <div className="min-w-0">
+
+                          <p className="text-xs font-black text-[#07152f]">
+                            Location pinned
+                          </p>
+
+                          <p className="mt-1 text-[10px] leading-5 text-gray-500">
+                            Your delivery pin can be moved anytime on the map. Address fields remain editable.
+                          </p>
+
+                          <p className="mt-1 break-all text-[9px] font-semibold text-gray-400">
+                            {coordinates.latitude.toFixed(
+                              6
+                            )}
+                            ,{" "}
+                            {coordinates.longitude.toFixed(
+                              6
+                            )}
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                  {/* ADDRESS PREVIEW */}
+
+                  {address.trim() && (
+
+                    <div className="mt-5 rounded-2xl border border-[#07152f]/10 bg-[#07152f]/[0.03] p-4">
+
+                      <div className="flex items-center justify-between gap-3">
+
+                        <p className="text-xs font-black uppercase tracking-wide text-gray-400">
+                          Delivery address
+                        </p>
+
+                        <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-black text-[#07152f] shadow-sm">
+                          {addressType}
+                        </span>
+
+                      </div>
+
+                      <p className="mt-2 text-sm font-semibold leading-6 text-gray-700">
+                        {address}
+                      </p>
+
+                    </div>
+
+                  )}
 
                   {/* PAYMENT */}
 
                   <div className="mt-5 rounded-2xl border-2 border-[#07152f] bg-gray-50 p-4">
 
-                    <p className="font-black">
-                      💵 Cash on Delivery
-                    </p>
+                    <div className="flex items-start gap-3">
 
-                    <p className="mt-1 text-sm text-gray-500">
-                      Pay when your order is delivered.
-                    </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-lg shadow-sm">
+                        💵
+                      </div>
+
+                      <div>
+
+                        <p className="font-black text-[#07152f]">
+                          Cash on Delivery
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          Pay when your order is delivered.
+                        </p>
+
+                      </div>
+
+                    </div>
 
                   </div>
 
@@ -1147,7 +2253,7 @@ export default function CartPage() {
 
                   {checkoutMessage && (
 
-                    <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
                       {checkoutMessage}
                     </div>
 
@@ -1159,7 +2265,7 @@ export default function CartPage() {
                     type="button"
                     onClick={placeOrder}
                     disabled={placingOrder}
-                    className="mt-5 w-full rounded-xl bg-[#07152f] px-6 py-4 font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-5 w-full rounded-2xl bg-[#07152f] px-6 py-4 font-black text-white shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {placingOrder
                       ? "Placing Order..."
@@ -1172,12 +2278,18 @@ export default function CartPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
                       setShowCheckout(
                         false
-                      )
-                    }
-                    className="mt-3 w-full rounded-xl border-2 border-gray-300 px-6 py-3.5 font-black text-gray-700"
+                      );
+
+                      /*
+                       * Do not reset locationAttemptedRef.
+                       * If customer reopens checkout, they can
+                       * still use the manual location button.
+                       */
+                    }}
+                    className="mt-3 w-full rounded-2xl border-2 border-gray-300 px-6 py-3.5 font-black text-gray-700 transition hover:bg-gray-50"
                   >
                     Back to Cart
                   </button>
